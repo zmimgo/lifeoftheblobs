@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <iostream>
+#include "../headers/templates.hpp"
 
 // General variables
 struct windowTemplate {
@@ -14,20 +15,29 @@ struct windowTemplate {
     int height;
 };
 unsigned int frame = 0;
+unsigned int mercy = 0;
 
 // Settings
 windowTemplate window = {800, 800};
-int maxBlobs = 500;
-int blobInvincibility = 100;
-bool allowBlobAging = true;
-int blobMaxAge = 1200;
-bool showBlobAmountMessage = true;
-int blobAmountMessageDelay = 100;
-bool includeYPC = true;
-bool showMajoritytMessage = true;
-int blobMajorityMessageDelay = 100;
-int universalBlobSpeed = 5;
-bool extraRandomness = false;
+
+// Modes
+settingsTemplate settings = HungerGames;
+
+// Settings data type
+int maxBlobs;
+int blobInvincibility;
+bool allowBlobAging;
+int blobMaxAge;
+bool showBlobAmountMessage;
+int blobAmountMessageDelay;
+bool includeYPC;
+bool showMajorityMessage;
+int blobMajorityMessageDelay;
+int universalBlobSpeed;
+bool extraRandomness;
+bool mercyRule;
+int minFramesBeforeMercy;
+int maxMercy;
 
 // Blob data structures
 struct blob {
@@ -145,8 +155,36 @@ void addStarterBlobs(){
     }
 }
 
+void restartBlobs(SDL_Renderer* rend){
+    SDL_SetRenderDrawColor(rend, 0, 0, 0, 255);
+    SDL_RenderClear(rend);
+    blobs.clear();
+    addStarterBlobs();
+}
+
+// Set settings functions
+void setSettings(settingsTemplate s){
+    maxBlobs = s.maxBlobs;
+    blobInvincibility = s.blobInvincibility;
+    allowBlobAging = s.allowBlobAging;
+    blobMaxAge = s.blobMaxAge;
+    showBlobAmountMessage = s.showBlobAmountMessage;
+    blobAmountMessageDelay = s.blobAmountMessageDelay;
+    includeYPC = s.includeYPC;
+    showMajorityMessage = s.showMajorityMessage;
+    blobMajorityMessageDelay = s.blobMajorityMessageDelay;
+    universalBlobSpeed = s.universalBlobSpeed;
+    extraRandomness = s.extraRandomness;
+    mercyRule = s.mercyRule;
+    maxMercy = s.maxMercy;
+    minFramesBeforeMercy = s.minFramesBeforeMercy;
+}
+
 // Main function
 int main(int argc, char *argv[]) {
+    // Set up the settings
+    setSettings(settings);
+
     // Generate a random seed for the random number generator
     srand(time(NULL));
 
@@ -193,10 +231,7 @@ int main(int argc, char *argv[]) {
 
         // If there are too many or too few blobs, reset the blobs
         if(blobs.size() > maxBlobs || blobs.size() < 2) {
-            SDL_SetRenderDrawColor(rend, 0, 0, 0, 255);
-            SDL_RenderClear(rend);
-            blobs.clear();
-            addStarterBlobs();
+            restartBlobs(rend);
         }
 
         // Print blob amount and majority color, if chosen
@@ -204,7 +239,7 @@ int main(int argc, char *argv[]) {
         printf("Blobs: %d\n", blobs.size());
         }
 
-        if(frame % blobMajorityMessageDelay == 0 && showMajoritytMessage) {
+        if(frame % blobMajorityMessageDelay == 0) {
             // Find the amount of each color
             int red = 0;
             int green = 0;
@@ -257,11 +292,48 @@ int main(int argc, char *argv[]) {
                 }
 
                 // Print the majority color
-                printf("Majority [%s] (RGBYPC): %d, %d, %d, %d, %d, %d\n", color.c_str(), red, green, blue, yellow, purple, cyan);
+                if(showMajorityMessage) printf("Majority [%s] (RGBYPC): %d, %d, %d, %d, %d, %d\n", color.c_str(), red, green, blue, yellow, purple, cyan);
             } else {
-                printf("Majority [%s] (RGB): %d, %d, %d\n", color.c_str(), red, green, blue);
+                if(showMajorityMessage) printf("Majority [%s] (RGB): %d, %d, %d\n", color.c_str(), red, green, blue);
+            }
+            if(mercyRule && frame > minFramesBeforeMercy){
+                int blobAmount = 0;
+                int colorAmount = 0;
+                if(red > 0){
+                    blobAmount += red;
+                    colorAmount++;
+                }
+                if(green > 0){
+                    blobAmount += green;
+                    colorAmount++;
+                }
+                if(blue > 0){
+                    blobAmount += blue;
+                    colorAmount++;
+                }
+                if(yellow > 0){
+                    blobAmount += yellow;
+                    colorAmount++;
+                }
+                if(purple > 0){
+                    blobAmount += purple;
+                    colorAmount++;
+                }
+                if(cyan > 0){
+                    blobAmount += cyan;
+                    colorAmount++;
+                }
+                if(blobAmount / colorAmount == blobs.size()){
+                     mercy++;
+                }
+                if(mercy >= maxMercy){
+                    restartBlobs(rend);
+                    mercy = 0;
+                }
             }
         }
+
+
 
         // Render the frame
         SDL_RenderPresent(rend);
